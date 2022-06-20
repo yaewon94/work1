@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="TB_PROD_MAIN_DESC">
+
+	<!-- new 핵심상품설명서 내용 조회  -->
+	<select id="selectTbProdMainDesc" parameterType="hashmap" resultType="hashmap">	
+        SELECT 
+               LIKE_PROD_GB||'^'||
+               QUEST_PROD_DESC||'^'||
+               DIS_AVT_1||'^'||
+               DIS_AVT_2||'^'||
+               DIS_AVT_3||'^'||
+               DIS_AVT_4||'^'||
+               DIS_AVT_5||'^'||
+               DIS_AVT_6||'^'||
+               DIS_AVT_7||'^'||
+               DIS_AVT_8||'^'||
+               DIS_AVT_9||'^'||
+               DIS_AVT_10||'^'||
+               DIS_AVT_11||'^'||
+               DIS_AVT_12||'^'||
+               DIS_AVT_13||'^'||
+               DIS_AVT_14||'^'||
+               DIS_AVT_15||'^'||
+               DIS_AVT_16||'^'||
+               DIS_AVT_17||'^'||
+               DIS_AVT_18||'^'||
+               DIS_AVT_19||'^'||
+               DIS_AVT_20||'^'||
+               QUEST_PROD_DESC_2       AS  RESULT
+          FROM TB_PROD_MAIN_DESC
+         WHERE VE_DATE = '99991231235959'
+           AND PROD_CODE = #{prodCode} 
+	</select>
+	
+	<!-- new 핵심상품설명서 내용 등록  -->
+	<insert id="insertTbProdMainDesc" parameterType="hashmap">
+		INSERT INTO TB_PROD_MAIN_DESC
+			( PROD_CODE
+		   	, VE_DATE
+		   	, LIKE_PROD_GB
+		   	, QUEST_PROD_DESC
+		   	, DIS_AVT_1
+		   	, DIS_AVT_2
+		   	, DIS_AVT_3
+		   	, DIS_AVT_4
+		   	, DIS_AVT_5
+		   	, DIS_AVT_6
+		   	, DIS_AVT_7
+		   	, DIS_AVT_8
+		   	, DIS_AVT_9
+		   	, DIS_AVT_10
+		   	, DIS_AVT_11
+		   	, DIS_AVT_12
+		   	, DIS_AVT_13
+		   	, DIS_AVT_14
+		   	, DIS_AVT_15
+		   	, DIS_AVT_16
+		   	, DIS_AVT_17
+		   	, DIS_AVT_18
+		   	, DIS_AVT_19
+		   	, DIS_AVT_20
+		   	, ENTRY_UID
+		   	, ENTRY_DATE
+		   	, ENTRY_TIME
+		   	, QUEST_PROD_DESC_2) 	
+		 VALUES(#{prodCode}
+		 	 , '99991231235959'
+		 	 , ' '
+		 	 , NVL(#{quest2}, '^^')
+		 	 , NVL(#{dis_avt_1}, '^^')
+		 	 , NVL(#{dis_avt_2}, '^^^^^^^^^')
+		 	 , #{dis_avt_3}
+		 	 , #{dis_avt_4}
+		 	 , #{dis_avt_5}
+		 	 , #{dis_avt_6}
+		 	 , NULL
+		 	 , #{dis_avt_8}
+		 	 , #{dis_avt_9}
+		 	 , #{dis_avt_10}
+		 	 , #{dis_avt_11}
+		 	 , NVL(#{dis_avt_12}||'^', '^')
+		 	 , #{dis_avt_13}
+		 	 , #{dis_avt_14}
+		 	 , #{dis_avt_15}
+		 	 , #{dis_avt_16}
+		 	 , #{dis_avt_17}
+		 	 , #{dis_avt_18}
+		 	 , #{dis_avt_19}
+		 	 , #{dis_avt_20}
+		 	 , #{entryUid}
+		 	 , TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 	 , TO_CHAR(SYSDATE, 'HH24MISS')
+		 	 , NVL(#{quest3}, '^^'))
+	</insert>
+	
+	<!-- new 핵심상품설명서 내용 삭제  -->
+	<delete id="deleteTbProdMainDesc" parameterType="hashmap">
+		DELETE FROM TB_PROD_MAIN_DESC
+		 WHERE VE_DATE = '99991231235959'
+		 AND PROD_CODE = #{prodCode}
+	</delete>
+</mapper>
