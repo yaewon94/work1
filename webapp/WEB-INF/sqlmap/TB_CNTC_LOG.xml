@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="TB_CNTC_LOG">
+
+	<!-- 콜 보고서-콜 활동통계 | 2021.12.06 | JYW -->
+	<select id="retrieveCallWorkRpt" parameterType="hashmap" resultType="hashmap">
+	SELECT BIZGRP AS "BIZGRP" , 
+		   BR AS "BR" ,
+		   TEA AS "TEA" ,
+		   ENO AS "ENO" ,
+		   ENAME AS "ENAME" ,
+		   PREMPCNT AS "PREMPCNT" ,
+		   WORKDAY AS "WORKDAY" ,
+		   TOTCALLCNT AS "TOTCALLCNT" , -- 월 콜건수 총합
+		   CALLCNT AS "CALLCNT" , -- 월 유효콜건수 총합
+		   CASE
+		   	WHEN TOTCALLCNT <![CDATA[>]]> 0 THEN
+		   		CASE
+		   		 WHEN CNTCDIFF <![CDATA[<>]]> 0 THEN ROUND(CNTCDIFF/TOTCALLCNT)
+		   		 ELSE 0
+		   		END
+		   	ELSE 0
+		   END || '초' AS "AGVCALLTM" , -- 평균 통화시간
+		   <if test="CHN == 7">
+		   CASE
+		    WHEN WORKDAY BETWEEN 1 AND 4 THEN ROUND(CALLCNT / WORKDAY)
+		    WHEN WORKDAY = 0 THEN 0
+		    ELSE ROUND(CALLCNT / (WORKDAY-4))
+		   END AS "DAYAVGCNT" , -- 일평균 콜건수 (월 유효콜건수 총합 / 영업일-4)
+		   </if>
+		   <if test="CHN != null and CHN != '' and CHN != 7">
+		   CASE
+		   	WHEN WORKDAY <![CDATA[>]]> 0 THEN ROUND(CALLCNT / WORKDAY)
+		   	ELSE 0
+		   END AS "DAYAVGCNT" , -- 일평균 콜건수 (월 유효콜건수 총합 / 영업일)
+		   </if>
+		   <if test="CHN == 7">
+		   CASE
+		   	WHEN WORKDAY BETWEEN 1 AND 4 THEN
+		   		CASE
+		   		 WHEN ROUND(CALLCNT / WORKDAY) <![CDATA[>=]]> 3 THEN '1등급'
+		   		 WHEN ROUND(CALLCNT / WORKDAY) = 2 THEN '2등급'
+		   		 ELSE '3등급'
+		   		END
+		   	ELSE
+		   		CASE
+		   		 WHEN ROUND(CALLCNT / (WORKDAY-4)) <![CDATA[>=]]> 3 THEN '1등급'
+		   		 WHEN ROUND(CALLCNT / (WORKDAY-4)) = 2 THEN '2등급'
+		   		 ELSE '3등급'
+		   		END
+		   END AS "CALLGRADE" -- 콜등급
+		   </if>
+		   <if test="CHN != null and CHN != '' and CHN != 7">
+		   CASE
+		   	WHEN WORKDAY = 0 THEN '3등급'
+		   	ELSE
+		   		CASE
+		   		 WHEN ROUND(CALLCNT / WORKDAY) <![CDATA[>=]]> 3 THEN '1등급'
+		   		 WHEN ROUND(CALLCNT / WORKDAY) <![CDATA[=]]> 2 THEN '2등급'
+		   		 ELSE '3등급'
+		   		END
+		   END AS "CALLGRADE" -- 콜등급
+		   </if>
+	FROM
+	(
+		SELECT
+			(SELECT C.OAGCHQN FROM TB_HO_AGCODE C WHERE C.OAGCHQ = EMP.XAGCHQ AND ROWNUM = 1) AS "BIZGRP" ,
+			(SELECT C.ORGFULL FROM TB_HO_AGCODE C WHERE C.ORGCD = EMP.XTOAGC AND ROWNUM = 1) AS "BR" ,
+			(SELECT D.TEAM_NM FROM TB_TEAM D WHERE D.ORGCD = EMP.XTOAGC AND D.TEAM_CD = EMP.XTEAM AND ROWNUM = 1) AS "TEA" ,
+			EMP.XDSTAG AS "ENO" ,
+			EMP.XMNAME AS "ENAME" ,
+			(TO_NUMBER(TO_CHAR(SYSDATE, 'YYYY')) - TO_NUMBER(SUBSTR(EMP.XENTDT, 0, 4)))*12 + (TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) - TO_NUMBER(SUBSTR(EMP.XENTDT, 5, 2))) + 1 AS "PREMPCNT" ,
+			MAX(CALLINFO.WORKDAY) AS "WORKDAY" , -- 영업일
+			(
+				SELECT COUNT(*)
+				 FROM TB_CNTC_LOG A, TB_CHNL_PTY C
+				 WHERE A.CONTACT_UID = EMP.XDSTAG
+				   AND A.PARTY_ID = C.PARTY_ID
+				   AND A.CNTC_DATE BETWEEN #{ENTRYYM}||'01' AND
+				  	CASE
+						WHEN TO_CHAR(SYSDATE, 'YYYYMM') <![CDATA[<=]]> #{ENTRYYM} THEN TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+						ELSE TO_CHAR(last_day(#{ENTRYYM}||'01'), 'YYYYMMDD')
+					END
+			) AS "TOTCALLCNT" , -- 월 콜건수 총합
+			<if test="CHN == 7">
+			COUNT(
+				(SELECT C.PARTY_ID
+					FROM TB_CHNL_PTY C
+					WHERE CALLINFO.CONTACT_UID = EMP.XDSTAG
+					  AND CALLINFO.PARTY_ID = C.PARTY_ID
+					  AND CALLINFO.CNTCDIFF <![CDATA[>=]]> 120
+				)
+			) AS "CALLCNT" , -- 월 유효콜건수 총합
+			</if>
+			<if test="CHN != null and CHN != '' and CHN != 7">
+			COUNT(
+				(SELECT C.PARTY_ID
+					FROM TB_CHNL_PTY C
+					WHERE CALLINFO.CONTACT_UID = EMP.XDSTAG
+					  AND CALLINFO.PARTY_ID = C.PARTY_ID
+				)
+			) AS "CALLCNT" , -- 월 유효콜건수 총합
+			</if>
+			SUM(
+				(SELECT CALLINFO.CNTCDIFF
+					FROM TB_CHNL_PTY C 
+					WHERE CALLINFO.CONTACT_UID = EMP.XDSTAG 
+					  AND CALLINFO.PARTY_ID = C.PARTY_ID)
+			) AS "CNTCDIFF" -- 총 통화시간
+		FROM
+			TB_HO_AMCMST EMP ,
+			(
+				SELECT
+					A.CONTACT_UID AS "CONTACT_UID" ,
+					A.PARTY_ID AS "PARTY_ID" ,
+					(SUBSTR(A.CNTC_ED_TM, 0, 2)*3600 + SUBSTR(A.CNTC_ED_TM, 3, 2)*60 + SUBSTR(A.CNTC_ED_TM, 5, 2)) - (SUBSTR(A.CNTC_ST_TM, 0, 2)*3600 + SUBSTR(A.CNTC_ST_TM, 3, 2)*60 + SUBSTR(A.CNTC_ST_TM, 5, 2)) AS "CNTCDIFF" ,
+					B.WORKDAY AS "WORKDAY"
+				FROM
+					TB_CNTC_LOG A ,
+					(
+						SELECT
+							CALE_DATE ,
+							COUNT(CALE_DATE) OVER() AS "WORKDAY"
+						FROM CALENDAR_INFO
+						WHERE CALE_HSEQNO = 1
+						  AND CALE_VT_DT = '99991231'
+						  AND CALE_OCCR_REPL_YN <![CDATA[<>]]> '1'
+						  AND CALE_WKDAY BETWEEN '1' AND '5'
+						  AND CALE_HLDY_CAT IS NULL
+						  AND CALE_DATE BETWEEN #{ENTRYYM}||'01' AND
+						  	CASE
+						 		WHEN TO_CHAR(SYSDATE, 'YYYYMM') <![CDATA[<=]]> #{ENTRYYM} THEN TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+						 		ELSE TO_CHAR(last_day(#{ENTRYYM}||'01'), 'YYYYMMDD')
+						 	END
+					) B
+				WHERE A.CNTC_DATE = B.CALE_DATE
+				  AND A.DIAL_RSLT_CD = 'SUCC'
+				  AND A.CNTC_ED_TM IS NOT NULL
+				  AND A.CNTC_ED_TM <![CDATA[<>]]> 'OUT'
+			) CALLINFO
+		WHERE 1=1
+		<if test="BIZGRP != null and BIZGRP != ''">
+		 AND EMP.XAGCHQ = #{BIZGRP} -- 사업단
+		</if>
+		<if test="BR != null and BR != ''">
+		 AND EMP.XTOAGC = #{BR} -- 지점
+		</if>
+		<if test="TEA != null and TEA != ''">
+		 AND EMP.XTEAM = #{TEA} -- 팀
+		</if>
+		<if test="ENO != null and ENO != ''">
+		 AND EMP.XDSTAG = #{ENO} -- 사번
+		</if>
+		GROUP BY EMP.XDSTAG, EMP.XTOAGC, EMP.XTEAM, EMP.XAGCHQ, EMP.XMNAME, EMP.XENTDT
+	) TMP
+	</select> 
+
+</mapper>
